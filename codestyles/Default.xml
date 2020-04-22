@@ -1,0 +1,14 @@
+<code_scheme name="Default" version="173">
+  <JSCodeStyleSettings version="0">
+    <option name="USE_SEMICOLON_AFTER_STATEMENT" value="false" />
+    <option name="FORCE_SEMICOLON_STYLE" value="true" />
+  </JSCodeStyleSettings>
+  <TypeScriptCodeStyleSettings version="0">
+    <option name="USE_SEMICOLON_AFTER_STATEMENT" value="false" />
+    <option name="FORCE_SEMICOLON_STYLE" value="true" />
+    <option name="USE_DOUBLE_QUOTES" value="false" />
+  </TypeScriptCodeStyleSettings>
+  <codeStyleSettings language="TypeScript">
+    <option name="RIGHT_MARGIN" value="160" />
+  </codeStyleSettings>
+</code_scheme>

@@ -1,0 +1,38 @@
+<application>
+  <component name="GitRememberedInputs">
+    <option name="visitedUrls">
+      <list>
+        <UrlAndUserName>
+          <option name="url" value="http://git.metrosystems.net" />
+          <option name="userName" value="polina.tagirova@metronom-external.com" />
+        </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="http://gitlab.codecentric.de" />
+          <option name="userName" value="polina.tagirova" />
+        </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="http://172.16.71.232:8080" />
+          <option name="userName" value="codtagip" />
+        </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="http://github.com" />
+          <option name="userName" value="tagirovap@gmail.com" />
+        </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="http://gitlab.com" />
+          <option name="userName" value="Polina_T" />
+        </UrlAndUserName>
+      </list>
+    </option>
+  </component>
+  <component name="Vcs.Log.App.Settings">
+    <option name="COLUMN_ORDER">
+      <list>
+        <option value="0" />
+        <option value="1" />
+        <option value="2" />
+        <option value="3" />
+      </list>
+    </option>
+  </component>
+</application>
