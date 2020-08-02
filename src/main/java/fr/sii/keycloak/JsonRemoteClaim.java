@@ -29,6 +29,9 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
     private static final String CLIENT_AUTH_URL = "client.auth.url";
     private static final String CLIENT_AUTH_ID = "client.auth.id";
     private static final String CLIENT_AUTH_PASS = "client.auth.pass";
+    private final static String REMOTE_GRAPHQL = "remote.graphql";
+    private final static String REMOTE_GRAPHQL_QUERY = "remote.graphql.query";
+    private final static String REMOTE_GRAPHQL_RESULT_PATH = "remote.graphql.path";
 
 
     /**
@@ -128,6 +131,30 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         property.setLabel("Client password");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("Client password to create a tech token.");
+        configProperties.add(property);
+
+        // Bearer token
+        property = new ProviderConfigProperty();
+        property.setName(REMOTE_GRAPHQL);
+        property.setLabel("Send a GraphQL query");
+        property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        property.setHelpText("Send the following query in a POST request.");
+        configProperties.add(property);
+
+        // Client auth url
+        property = new ProviderConfigProperty();
+        property.setName(REMOTE_GRAPHQL_QUERY);
+        property.setLabel("GraphQL query");
+        property.setType(ProviderConfigProperty.STRING_TYPE);
+        property.setHelpText("GraphQL query as escaped string. The query can only use variables 'username' and 'client_id' (if enabled above)");
+        configProperties.add(property);
+
+        // Client auth url
+        property = new ProviderConfigProperty();
+        property.setName(REMOTE_GRAPHQL_RESULT_PATH);
+        property.setLabel("GraphQL query result path");
+        property.setType(ProviderConfigProperty.STRING_TYPE);
+        property.setHelpText("The JSON path of the result data that should be assigned to the custom claim.");
         configProperties.add(property);
     }
 
@@ -241,7 +268,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
 
         // Call remote service
         String baseUrl = mappingModel.getConfig().get(CLIENT_AUTH_URL);
-        JsonNode jsonNode = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_FORM_URLENCODED, headers, parameters, formParameters);
+        JsonNode jsonNode = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_FORM_URLENCODED, headers, parameters, formParameters, null);
         if (!jsonNode.has("access_token")) {
             throw new JsonRemoteClaimException("Access token not found", baseUrl);
         }
@@ -249,6 +276,9 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
     }
 
     private JsonNode getRemoteAuthorizations(ProtocolMapperModel mappingModel, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        final boolean sendGraphQL = "true".equals(mappingModel.getConfig().get(REMOTE_GRAPHQL));
+        final String graphQlQuery = mappingModel.getConfig().get(REMOTE_GRAPHQL_QUERY);
+        final String graphQlQueryResultPath = mappingModel.getConfig().get(REMOTE_GRAPHQL_RESULT_PATH);
         // Get parameters
         Map<String, String> parameters = getQueryParameters(mappingModel, userSession, clientSessionCtx);
         // Get headers
@@ -256,6 +286,21 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
 
         // Call remote service
         String baseUrl = mappingModel.getConfig().get(REMOTE_URL);
-        return HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null);
+        if (sendGraphQL) {
+            JsonNode result = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, graphQlQuery);
+
+            // select desired data from result json object
+            if (graphQlQueryResultPath != null && !"".equals(graphQlQueryResultPath.trim())) {
+                List<String> pathSegments = Arrays.asList(graphQlQueryResultPath.trim().split("\\."));
+                for (String pathSegment: pathSegments) {
+                    if (result != null)
+                        result = result.path(pathSegment);
+                };
+            }
+
+            return result;
+        } else {
+            return HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, null);
+        }
     }
 }

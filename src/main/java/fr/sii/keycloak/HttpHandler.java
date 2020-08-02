@@ -15,8 +15,13 @@ import java.util.Map;
 
 class HttpHandler {
 
-    static JsonNode getJsonNode(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters) {
-        HttpResponse<String> response = getResponse(baseUrl, contentType, headers, queryParameters, formParameters);
+    static JsonNode getJsonNode(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
+        HttpResponse<String> response;
+        if (graphQlQuery != null) {
+            response = executeGraphQL(baseUrl, contentType, headers, queryParameters, graphQlQuery);
+        } else {
+            response = getResponse(baseUrl, contentType, headers, queryParameters, formParameters);
+        }
 
         if (response.statusCode() != 200) {
             throw new JsonRemoteClaimException("Wrong status received for remote claim - Expected: 200, Received: " + response.statusCode(), baseUrl);
@@ -43,6 +48,28 @@ class HttpHandler {
             if (formParameters != null) {
                 builder.POST(Utils.getFormData(formParameters));
             }
+
+            // Build headers
+            builder.header(HttpHeaders.CONTENT_TYPE , contentType);
+            headers.forEach(builder::header);
+
+            // Call
+            return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException | IOException e) {
+            throw new JsonRemoteClaimException("Error when accessing remote claim", baseUrl, e);
+        } catch (URISyntaxException e) {
+            throw new JsonRemoteClaimException("Wrong uri syntax ", baseUrl, e);
+        }
+    }
+
+    private static HttpResponse<String> executeGraphQL(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, String graphQlQuery) {
+        try {
+            HttpClient httpClient = HttpClient.newHttpClient();
+            URIBuilder uriBuilder = new URIBuilder(baseUrl);
+            URI uri = uriBuilder.build();
+
+            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri);
+            builder.POST(Utils.getGraphQlBody(graphQlQuery, queryParameters));
 
             // Build headers
             builder.header(HttpHeaders.CONTENT_TYPE , contentType);

@@ -26,16 +26,37 @@ class Utils {
         return map;
     }
 
-    static HttpRequest.BodyPublisher getFormData(Map<String, String> data) {
+    static String keyValConcat(Map<String, String> data, char kevValSep, char entrySep, String paddingSep) {
         StringBuilder builder = new StringBuilder();
         data.forEach((key, value) -> {
             if (builder.length() > 0) {
-                builder.append("&");
+                builder.append(entrySep);
             }
+            builder.append(paddingSep);
             builder.append(URLEncoder.encode(key, StandardCharsets.UTF_8));
-            builder.append("=");
+            builder.append(paddingSep);
+            builder.append(kevValSep);
+            builder.append(paddingSep);
             builder.append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+            builder.append(paddingSep);
         });
+        return builder.toString();
+    }
+
+    static HttpRequest.BodyPublisher getFormData(Map<String, String> data) {
+        return HttpRequest.BodyPublishers.ofString(keyValConcat(data, '=', '&', ""));
+    }
+
+    static HttpRequest.BodyPublisher getGraphQlBody(String query, Map<String, String> variables) {
+        StringBuilder builder = new StringBuilder();
+        var ref = new Object() {
+            boolean firstVariable = true;
+        };
+        builder.append("{\"query\":\"");
+        builder.append(query);
+        builder.append("\\n\",\"variables\":{");
+        builder.append(keyValConcat(variables, ':', ',', "\""));
+        builder.append("}}");
         return HttpRequest.BodyPublishers.ofString(builder.toString());
     }
 }
