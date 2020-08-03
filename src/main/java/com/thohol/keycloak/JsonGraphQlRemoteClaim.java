@@ -1,4 +1,4 @@
-package fr.sii.keycloak;
+package com.thohol.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.http.HttpHeaders;
@@ -13,9 +13,9 @@ import java.util.stream.Collectors;
 
 /**
  * @author <a href="mailto:ni.roussel@gmail.com">Nicolas Roussel</a>
- * @version $Revision: 1 $
+ * @author <a href="mailto:thomas@thohol.com">Thomas Holst</a>
  */
-public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
+public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
 
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
 
@@ -46,7 +46,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
     public final static String PROVIDER_ID = "json-remote-claim";
 
     static {
-        OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, JsonRemoteClaim.class);
+        OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, JsonGraphQlRemoteClaim.class);
         OIDCAttributeMapperHelper.addTokenClaimNameConfig(configProperties);
 
         ProviderConfigProperty property;
@@ -54,7 +54,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Username
         property = new ProviderConfigProperty();
         property.setName(REMOTE_PARAMETERS_USERNAME);
-        property.setLabel("Send user name");
+        property.setLabel("Send User Name");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
         property.setHelpText("Send the username as query parameter (param: username).");
         property.setDefaultValue("true");
@@ -63,7 +63,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Client_id
         property = new ProviderConfigProperty();
         property.setName(REMOTE_PARAMETERS_CLIENTID);
-        property.setLabel("Send client ID");
+        property.setLabel("Send Client ID");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
         property.setHelpText("Send the client_id as query parameter (param: client_id).");
         property.setDefaultValue("false");
@@ -104,7 +104,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Bearer token
         property = new ProviderConfigProperty();
         property.setName(REMOTE_HEADERS_BEARER_TOKEN);
-        property.setLabel("Send bearer token");
+        property.setLabel("Send Bearer Token");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
         property.setHelpText("Send the bearer token as auth header.");
         configProperties.add(property);
@@ -112,7 +112,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Client auth url
         property = new ProviderConfigProperty();
         property.setName(CLIENT_AUTH_URL);
-        property.setLabel("Client auth URL");
+        property.setLabel("Client Auth URL");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("Full URL of the keycloak client auth endpoint.");
         configProperties.add(property);
@@ -120,7 +120,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Client id
         property = new ProviderConfigProperty();
         property.setName(CLIENT_AUTH_ID);
-        property.setLabel("Client id");
+        property.setLabel("Client ID");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("Client id to create a tech token.");
         configProperties.add(property);
@@ -128,23 +128,23 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Client password
         property = new ProviderConfigProperty();
         property.setName(CLIENT_AUTH_PASS);
-        property.setLabel("Client password");
+        property.setLabel("Client Secret");
         property.setType(ProviderConfigProperty.STRING_TYPE);
-        property.setHelpText("Client password to create a tech token.");
+        property.setHelpText("Client secret to create a tech token for access to the remote service.");
         configProperties.add(property);
 
         // Bearer token
         property = new ProviderConfigProperty();
         property.setName(REMOTE_GRAPHQL);
-        property.setLabel("Send a GraphQL query");
+        property.setLabel("Send a GraphQL Query");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
-        property.setHelpText("Send the following query in a POST request.");
+        property.setHelpText("Send a GraphQL query in a POST request.");
         configProperties.add(property);
 
         // Client auth url
         property = new ProviderConfigProperty();
         property.setName(REMOTE_GRAPHQL_QUERY);
-        property.setLabel("GraphQL query");
+        property.setLabel("GraphQL Query");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("GraphQL query as escaped string. The query can only use variables 'username' and 'client_id' (if enabled above)");
         configProperties.add(property);
@@ -152,7 +152,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         // Client auth url
         property = new ProviderConfigProperty();
         property.setName(REMOTE_GRAPHQL_RESULT_PATH);
-        property.setLabel("GraphQL query result path");
+        property.setLabel("GraphQL Query Result Path");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("The JSON path of the result data that should be assigned to the custom claim.");
         configProperties.add(property);
@@ -165,12 +165,12 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
 
     @Override
     public String getDisplayType() {
-        return "JSON Remote claim";
+        return "JSON GraphQL Remote Claim";
     }
 
     @Override
     public String getHelpText() {
-        return "Retrieve JSON data to include from a remote HTTP endpoint.";
+        return "Retrieve JSON data to include from a remote authenticated HTTP/GraphQL endpoint.";
     }
 
     @Override
@@ -270,7 +270,7 @@ public class JsonRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCA
         String baseUrl = mappingModel.getConfig().get(CLIENT_AUTH_URL);
         JsonNode jsonNode = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_FORM_URLENCODED, headers, parameters, formParameters, null);
         if (!jsonNode.has("access_token")) {
-            throw new JsonRemoteClaimException("Access token not found", baseUrl);
+            throw new JsonGraphQlRemoteClaimException("Access token not found", baseUrl);
         }
         return jsonNode.findValue("access_token").asText();
     }

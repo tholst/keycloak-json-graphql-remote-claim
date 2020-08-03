@@ -1,4 +1,4 @@
-package fr.sii.keycloak;
+package com.thohol.keycloak;
 
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;

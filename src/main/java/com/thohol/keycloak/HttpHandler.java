@@ -1,4 +1,4 @@
-package fr.sii.keycloak;
+package com.thohol.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,12 +24,12 @@ class HttpHandler {
         }
 
         if (response.statusCode() != 200) {
-            throw new JsonRemoteClaimException("Wrong status received for remote claim - Expected: 200, Received: " + response.statusCode(), baseUrl);
+            throw new JsonGraphQlRemoteClaimException("Wrong status received for remote claim - Expected: 200, Received: " + response.statusCode(), baseUrl);
         }
         try {
             return new ObjectMapper().readTree(response.body());
         } catch (IOException e) {
-            throw new JsonRemoteClaimException("Error when parsing response for remote claim", baseUrl, e);
+            throw new JsonGraphQlRemoteClaimException("Error when parsing response for remote claim", baseUrl, e);
         }
     }
 
@@ -56,9 +56,9 @@ class HttpHandler {
             // Call
             return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException | IOException e) {
-            throw new JsonRemoteClaimException("Error when accessing remote claim", baseUrl, e);
+            throw new JsonGraphQlRemoteClaimException("Error when accessing remote claim", baseUrl, e);
         } catch (URISyntaxException e) {
-            throw new JsonRemoteClaimException("Wrong uri syntax ", baseUrl, e);
+            throw new JsonGraphQlRemoteClaimException("Wrong uri syntax ", baseUrl, e);
         }
     }
 
@@ -78,9 +78,9 @@ class HttpHandler {
             // Call
             return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException | IOException e) {
-            throw new JsonRemoteClaimException("Error when accessing remote claim", baseUrl, e);
+            throw new JsonGraphQlRemoteClaimException("Error when accessing remote claim", baseUrl, e);
         } catch (URISyntaxException e) {
-            throw new JsonRemoteClaimException("Wrong uri syntax ", baseUrl, e);
+            throw new JsonGraphQlRemoteClaimException("Wrong uri syntax ", baseUrl, e);
         }
     }
 }

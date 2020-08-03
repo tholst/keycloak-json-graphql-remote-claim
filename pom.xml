@@ -2,11 +2,11 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
     <name>JSON Remote claim</name>
-    <description>Keycloak module for mapping remote claims</description>
+    <description>Keycloak module for mapping remote claims via authenticated GraphQL queries</description>
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>fr.sii.keycloak</groupId>
-    <artifactId>json-remote-claim</artifactId>
+    <groupId>com.thohol.keycloak</groupId>
+    <artifactId>json-graphql-remote-claim</artifactId>
     <version>1.0.0</version>
 
     <packaging>jar</packaging>
