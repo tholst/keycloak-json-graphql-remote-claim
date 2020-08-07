@@ -33,17 +33,9 @@ mvn clean package
 
 ### Deploy manually
 
-1. In keycloak configuration (e.g. standalone.xml), register the module by adding the following provider into the ```urn:jboss:domain:keycloak-server``` subsystem. 
-    
-        <provider>module:com.thohol.keycloak.mapper.json-graphql-remote-claim</provider>
-
-2. Copy Jar and module.xml in the keycloak modules (replace {KEYCLOAK_PATH})
-
-        mkdir -p {KEYCLOAK_PATH}/modules/system/layers/base/com/thohol/keycloak/mapper/json-graphql-remote-claim/main/
-        cp ./target/json-graphql-remote-claim.jar {KEYCLOAK_PATH}/modules/system/layers/base/com/thohol/keycloak/mapper/json-graphql-remote-claim/main/
-        cp ./src/main/config/module.xml {KEYCLOAK_PATH}/modules/system/layers/base/com/thohol/keycloak/mapper/json-graphql-remote-claim/main/
-
-3. Start Keycloak
+Build module and then copy the `target/json-graphql-remote-claim.jar` file to `/opt/jboss/keycloak/standalone/deployments/`. 
+Keycloak should pick it up automatically and deploy it. 
+No restart should be required.
 
 ### Deploy in Docker
 
