@@ -231,7 +231,8 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
 
         // Get username
         if (sendUsername) {
-            formattedParameters.put("username", userSession.getLoginUsername());
+            // username is passed as lower case for consistency because keycloak does the same internally
+            formattedParameters.put("username", userSession.getLoginUsername().toLowerCase());
         }
 
         // Get custom user attributes
