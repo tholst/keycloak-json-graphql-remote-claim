@@ -7,6 +7,7 @@ import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.IDToken;
 import org.keycloak.utils.MediaType;
+import org.jboss.logging.Logger;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,7 +19,11 @@ import java.util.stream.Collectors;
 public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
 
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
+    private static final Logger LOGGER = Logger.getLogger(JsonGraphQlRemoteClaim.class);
 
+
+    private final static String DEBUG_ERRORS_CATCH_ALL = "debugging.errors.catchall";
+    private final static String DEBUG_REMOTE_DISABLED = "debugging.remote.disabled";
     private final static String REMOTE_URL = "remote.url";
     private final static String REMOTE_HEADERS = "remote.headers";
     private final static String REMOTE_PARAMETERS = "remote.parameters";
@@ -50,6 +55,22 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         OIDCAttributeMapperHelper.addTokenClaimNameConfig(configProperties);
 
         ProviderConfigProperty property;
+
+        // Disable
+        property = new ProviderConfigProperty();
+        property.setName(DEBUG_REMOTE_DISABLED);
+        property.setLabel("Disable Remote Requests (Debugging)");
+        property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        property.setHelpText("Disable all remote requests. For debugging. Will set claim value to \"disabled\".");
+        configProperties.add(property);
+
+        // Catch Errors
+        property = new ProviderConfigProperty();
+        property.setName(DEBUG_ERRORS_CATCH_ALL);
+        property.setLabel("Catch all Errors (Debugging)");
+        property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        property.setHelpText("Catches all errors (e.g., 500 response status) and returns them as part of the token. For debugging. Will set claim value to error message.");
+        configProperties.add(property);
 
         // Username
         property = new ProviderConfigProperty();
@@ -141,7 +162,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         property.setHelpText("Send a GraphQL query in a POST request.");
         configProperties.add(property);
 
-        // Client auth url
+        // GraphQL query
         property = new ProviderConfigProperty();
         property.setName(REMOTE_GRAPHQL_QUERY);
         property.setLabel("GraphQL Query");
@@ -183,28 +204,61 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         return PROVIDER_ID;
     }
 
-    @Override
-    protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession, KeycloakSession keycloakSession, ClientSessionContext clientSessionCtx) {
+
+    protected void _setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession, KeycloakSession keycloakSession, ClientSessionContext clientSessionCtx) {
+        final boolean disabled = "true".equals(mappingModel.getConfig().get(DEBUG_REMOTE_DISABLED));
         JsonNode claims = clientSessionCtx.getAttribute(REMOTE_AUTHORIZATION_ATTR, JsonNode.class);
-        if (claims == null) {
+        if (claims == null && !disabled) {
             claims = getRemoteAuthorizations(mappingModel, userSession, clientSessionCtx);
             clientSessionCtx.setAttribute(REMOTE_AUTHORIZATION_ATTR, claims);
         }
 
-        OIDCAttributeMapperHelper.mapClaim(token, mappingModel, claims);
+        OIDCAttributeMapperHelper.mapClaim(token, mappingModel, (claims == null && disabled) ? "disabled" : claims);
+    }
+
+    @Override
+    protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession, KeycloakSession keycloakSession, ClientSessionContext clientSessionCtx) {
+        final boolean catchErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_CATCH_ALL));
+        if (catchErrors) {
+            try {
+                _setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
+            } catch (Throwable t) {
+                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, t.toString());
+            }
+        } else {
+            _setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
+        }
+    }
+
+    protected void _setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession) {
+        final boolean disabled = "true".equals(mappingModel.getConfig().get(DEBUG_REMOTE_DISABLED));
+        if (disabled) {
+            OIDCAttributeMapperHelper.mapClaim(token, mappingModel, "disabled");
+        } else {
+            JsonNode claims = getRemoteAuthorizations(mappingModel, userSession, null);
+            OIDCAttributeMapperHelper.mapClaim(token, mappingModel, claims);
+        }
     }
 
     /**
      * Deprecated, added for older versions
-     *
+     * <p>
      * Caution: This version does not allow to minimize request number
      *
      * @deprecated override {@link #setClaim(IDToken, ProtocolMapperModel, UserSessionModel, KeycloakSession, ClientSessionContext)} instead.
      */
     @Override
     protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession) {
-        JsonNode claims = getRemoteAuthorizations(mappingModel, userSession, null);
-        OIDCAttributeMapperHelper.mapClaim(token, mappingModel, claims);
+        final boolean catchErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_CATCH_ALL));
+        if (catchErrors) {
+            try {
+                _setClaim(token, mappingModel, userSession);
+            } catch (Throwable t) {
+                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, t.toString());
+            }
+        } else {
+            _setClaim(token, mappingModel, userSession);
+        }
     }
 
     private Map<String, String> getQueryParameters(ProtocolMapperModel mappingModel, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
@@ -232,7 +286,9 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         // Get username
         if (sendUsername) {
             // username is passed as lower case for consistency because keycloak does the same internally
-            formattedParameters.put("username", userSession.getLoginUsername().toLowerCase());
+            final String userName = userSession.getLoginUsername().toLowerCase();
+            final String variableName = "username";
+            formattedParameters.put(variableName, userName);
         }
 
         // Get custom user attributes
@@ -293,10 +349,10 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
             // select desired data from result json object
             if (graphQlQueryResultPath != null && !"".equals(graphQlQueryResultPath.trim())) {
                 List<String> pathSegments = Arrays.asList(graphQlQueryResultPath.trim().split("\\."));
-                for (String pathSegment: pathSegments) {
+                for (String pathSegment : pathSegments) {
                     if (result != null)
                         result = result.path(pathSegment);
-                };
+                }
             }
 
             return result;

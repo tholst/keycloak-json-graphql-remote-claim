@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.utils.URIBuilder;
+import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.util.Map;
 
 class HttpHandler {
+    private static final Logger LOGGER = Logger.getLogger(HttpHandler.class);
 
     static JsonNode getJsonNode(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
         HttpResponse<String> response;

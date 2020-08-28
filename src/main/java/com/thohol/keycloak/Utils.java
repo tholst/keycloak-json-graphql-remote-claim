@@ -1,5 +1,7 @@
 package com.thohol.keycloak;
 
+import org.jboss.logging.Logger;
+
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
@@ -7,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 class Utils {
+    private static final Logger LOGGER = Logger.getLogger(Utils.class);
 
     static Map<String, String> buildMapFromStringConfig(String config) {
         final Map<String, String> map = new HashMap<>();
@@ -26,25 +29,27 @@ class Utils {
         return map;
     }
 
-    static String keyValConcat(Map<String, String> data, char kevValSep, char entrySep, String paddingSep) {
+    static String keyValConcat(Map<String, String> data, char kevValSep, char entrySep, String paddingSep, boolean urlEncode) {
         StringBuilder builder = new StringBuilder();
         data.forEach((key, value) -> {
             if (builder.length() > 0) {
                 builder.append(entrySep);
             }
             builder.append(paddingSep);
-            builder.append(URLEncoder.encode(key, StandardCharsets.UTF_8));
+            builder.append(urlEncode ? URLEncoder.encode(key, StandardCharsets.UTF_8) : key);
             builder.append(paddingSep);
             builder.append(kevValSep);
             builder.append(paddingSep);
-            builder.append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+            builder.append(urlEncode ? URLEncoder.encode(value, StandardCharsets.UTF_8) : value);
             builder.append(paddingSep);
         });
         return builder.toString();
     }
 
     static HttpRequest.BodyPublisher getFormData(Map<String, String> data) {
-        return HttpRequest.BodyPublishers.ofString(keyValConcat(data, '=', '&', ""));
+        final String params = keyValConcat(data, '=', '&', "", true);
+        LOGGER.debug("query params: " + params);
+        return HttpRequest.BodyPublishers.ofString(params);
     }
 
     static HttpRequest.BodyPublisher getGraphQlBody(String query, Map<String, String> variables) {
@@ -55,8 +60,9 @@ class Utils {
         builder.append("{\"query\":\"");
         builder.append(query);
         builder.append("\\n\",\"variables\":{");
-        builder.append(keyValConcat(variables, ':', ',', "\""));
+        builder.append(keyValConcat(variables, ':', ',', "\"", false));
         builder.append("}}");
+        LOGGER.debug("graphQL body: " + builder.toString());
         return HttpRequest.BodyPublishers.ofString(builder.toString());
     }
 }
