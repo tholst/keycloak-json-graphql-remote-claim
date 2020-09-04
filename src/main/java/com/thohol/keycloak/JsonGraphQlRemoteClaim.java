@@ -22,7 +22,8 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
     private static final Logger LOGGER = Logger.getLogger(JsonGraphQlRemoteClaim.class);
 
 
-    private final static String DEBUG_ERRORS_CATCH_ALL = "debugging.errors.catchall";
+    private final static String DEBUG_ERRORS_RETURN = "debugging.errors.catchall";
+    private final static String DEBUG_ERRORS_SUPPRESS = "debugging.errors.suppress";
     private final static String DEBUG_REMOTE_DISABLED = "debugging.remote.disabled";
     private final static String REMOTE_URL = "remote.url";
     private final static String REMOTE_HEADERS = "remote.headers";
@@ -64,12 +65,20 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         property.setHelpText("Disable all remote requests. For debugging. Will set claim value to \"disabled\".");
         configProperties.add(property);
 
-        // Catch Errors
+        // Suppress Errors
         property = new ProviderConfigProperty();
-        property.setName(DEBUG_ERRORS_CATCH_ALL);
-        property.setLabel("Catch all Errors (Debugging)");
+        property.setName(DEBUG_ERRORS_SUPPRESS);
+        property.setLabel("Suppress all Errors");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
-        property.setHelpText("Catches all errors (e.g., 500 response status) and returns them as part of the token. For debugging. Will set claim value to error message.");
+        property.setHelpText("Catches all errors (e.g., 500 response status). Will set claim value to \"error\" in case of error.");
+        configProperties.add(property);
+
+        // Return Errors
+        property = new ProviderConfigProperty();
+        property.setName(DEBUG_ERRORS_RETURN);
+        property.setLabel("Return all Errors (Debugging)");
+        property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        property.setHelpText("Catches all errors (e.g., 500 response status) and returns them as part of the token. For debugging. Will set claim value to error message. This setting overrules \"Suppress all Errors\".");
         configProperties.add(property);
 
         // Username
@@ -218,12 +227,13 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
 
     @Override
     protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession, KeycloakSession keycloakSession, ClientSessionContext clientSessionCtx) {
-        final boolean catchErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_CATCH_ALL));
-        if (catchErrors) {
+        final boolean returnErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_RETURN));
+        final boolean suppressErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_SUPPRESS));
+        if (returnErrors || suppressErrors) {
             try {
                 _setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
             } catch (Throwable t) {
-                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, t.toString());
+                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, returnErrors ? t.toString() : "error");
             }
         } else {
             _setClaim(token, mappingModel, userSession, keycloakSession, clientSessionCtx);
@@ -249,12 +259,13 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
      */
     @Override
     protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession) {
-        final boolean catchErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_CATCH_ALL));
-        if (catchErrors) {
+        final boolean returnErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_RETURN));
+        final boolean suppressErrors = "true".equals(mappingModel.getConfig().get(DEBUG_ERRORS_SUPPRESS));
+        if (returnErrors || suppressErrors) {
             try {
                 _setClaim(token, mappingModel, userSession);
             } catch (Throwable t) {
-                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, t.toString());
+                OIDCAttributeMapperHelper.mapClaim(token, mappingModel, returnErrors ? t.toString() : "error");
             }
         } else {
             _setClaim(token, mappingModel, userSession);

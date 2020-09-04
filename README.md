@@ -114,10 +114,12 @@ For headers and query parameters, use ```=``` to separate key and value. You can
 - Custom query parameters
 - Custom HTTP headers
 - URL configuration
-- Error handling: no token delivered if claims are unavailable (error 500 will occur)
+- Error handling: 
+    - default behavior: no token delivered if claims are unavailable (error 500 will occur)
+    - with `Suppress all Errors` enabled: catches all errors and returns `error` as claim value
 - Debugging Options
     - `Disable Remote Requests (Debugging)`: disables all requests and simply returns "disabled" as claim value
-    - `Catch all Errors (Debugging)`: returns error message as claim value instead of throwing an Error/Exception back at Keycloak
+    - `Return all Errors (Debugging)`: returns error message as claim value instead of throwing an Error/Exception back at Keycloak
 - Configurable Keycloak Client
     - will be used by protocol mapper to obtain access token at runtime. 
     - access token will then be sent to remote endpoint as `Authorization: Bearer <token>`.
