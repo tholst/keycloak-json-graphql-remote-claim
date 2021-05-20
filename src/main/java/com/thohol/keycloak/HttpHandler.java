@@ -16,6 +16,7 @@ import java.util.Map;
 
 class HttpHandler {
     private static final Logger LOGGER = Logger.getLogger(HttpHandler.class);
+    private static final HttpClient httpClient = HttpClient.newHttpClient();
 
     static JsonNode getJsonNode(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
         HttpResponse<String> response;
@@ -37,7 +38,6 @@ class HttpHandler {
 
     private static HttpResponse<String> getResponse(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters) {
         try {
-            HttpClient httpClient = HttpClient.newHttpClient();
             URIBuilder uriBuilder = new URIBuilder(baseUrl);
 
             // Build queryParameters
@@ -66,7 +66,6 @@ class HttpHandler {
 
     private static HttpResponse<String> executeGraphQL(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, String graphQlQuery) {
         try {
-            HttpClient httpClient = HttpClient.newHttpClient();
             URIBuilder uriBuilder = new URIBuilder(baseUrl);
             URI uri = uriBuilder.build();
 
