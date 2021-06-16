@@ -3,7 +3,6 @@ package com.thohol.keycloak;
 import org.jboss.logging.Logger;
 
 import java.net.URLEncoder;
-import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,23 +45,20 @@ class Utils {
         return builder.toString();
     }
 
-    static HttpRequest.BodyPublisher getFormData(Map<String, String> data) {
+    static String getFormData(Map<String, String> data) {
         final String params = keyValConcat(data, '=', '&', "", true);
         LOGGER.debug("query params: " + params);
-        return HttpRequest.BodyPublishers.ofString(params);
+        return params;
     }
 
-    static HttpRequest.BodyPublisher getGraphQlBody(String query, Map<String, String> variables) {
+    static String getGraphQlBody(String query, Map<String, String> variables) {
         StringBuilder builder = new StringBuilder();
-        var ref = new Object() {
-            boolean firstVariable = true;
-        };
         builder.append("{\"query\":\"");
         builder.append(query);
         builder.append("\\n\",\"variables\":{");
         builder.append(keyValConcat(variables, ':', ',', "\"", false));
         builder.append("}}");
         LOGGER.debug("graphQL body: " + builder.toString());
-        return HttpRequest.BodyPublishers.ofString(builder.toString());
+        return builder.toString();
     }
 }

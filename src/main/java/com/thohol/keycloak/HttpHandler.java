@@ -2,86 +2,120 @@ package com.thohol.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.*;
 import org.apache.http.HttpHeaders;
-import org.apache.http.client.utils.URIBuilder;
+import org.apache.log4j.Level;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.Map;
+import java.util.Objects;
 
 class HttpHandler {
     private static final Logger LOGGER = Logger.getLogger(HttpHandler.class);
-    private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final OkHttpClient okHttpClient = new OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .build();
 
-    static JsonNode getJsonNode(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
-        HttpResponse<String> response;
-        if (graphQlQuery != null) {
-            response = executeGraphQL(baseUrl, contentType, headers, queryParameters, graphQlQuery);
-        } else {
-            response = getResponse(baseUrl, contentType, headers, queryParameters, formParameters);
-        }
+    private static final OkHttpClient retryOkHttpClient = new OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .addInterceptor(retryInterceptor())
+            .build();
 
-        if (response.statusCode() != 200) {
-            throw new JsonGraphQlRemoteClaimException("Wrong status received for remote claim - Expected: 200, Received: " + response.statusCode(), baseUrl);
-        }
+    static JsonNode getJsonNode(boolean retryEnabled, String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
+        org.apache.log4j.Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
         try {
-            return new ObjectMapper().readTree(response.body());
+            Request request;
+            if (isGraphQlQuery(graphQlQuery)) {
+                request = prepareGraphQLRequest(baseUrl, contentType, headers, queryParameters, graphQlQuery);
+            } else {
+                request = prepareAuthenticationRequest(baseUrl, contentType, headers, queryParameters, formParameters);
+            }
+
+            Call call;
+            if (retryEnabled) {
+                call = retryOkHttpClient.newCall(request);
+            } else {
+                call = okHttpClient.newCall(request);
+            }
+
+            try (Response response = call.execute()) {
+                if (!response.isSuccessful()) {
+                    LOGGER.error("ERROR Response status: " + response.code() + " url: " + baseUrl);
+                    LOGGER.error("ERROR Response body: " + response.body().string());
+
+                    throw new JsonGraphQlRemoteClaimException("Wrong status received for remote claim - Expected: 200, Received: " + response.code(), baseUrl);
+                }
+
+                String responseBody = Objects.requireNonNull(response.body().string());
+                return new ObjectMapper().readTree(responseBody);
+            }
         } catch (IOException e) {
             throw new JsonGraphQlRemoteClaimException("Error when parsing response for remote claim", baseUrl, e);
         }
     }
 
-    private static HttpResponse<String> getResponse(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters) {
+    private static Request prepareAuthenticationRequest(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters) {
         try {
-            URIBuilder uriBuilder = new URIBuilder(baseUrl);
+            headers.put(HttpHeaders.CONTENT_TYPE, contentType);
+            Headers requestHeaders = Headers.of(headers);
 
-            // Build queryParameters
-            queryParameters.forEach(uriBuilder::setParameter);
-            URI uri = uriBuilder.build();
+            Request.Builder builder = new Request.Builder()
+                    .cacheControl(CacheControl.FORCE_NETWORK)
+                    .url(Objects.requireNonNull(HttpUrl.parse(baseUrl)))
+                    .headers(requestHeaders);
 
-            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri);
-
-            // Build formParameters
             if (formParameters != null) {
-                builder.POST(Utils.getFormData(formParameters));
+                builder.post(RequestBody.create(
+                        MediaType.parse("Content-Type: application/x-www-form-urlencoded"),
+                        Utils.getFormData(formParameters))
+                );
             }
 
-            // Build headers
-            builder.header(HttpHeaders.CONTENT_TYPE , contentType);
-            headers.forEach(builder::header);
-
-            // Call
-            return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException | IOException e) {
-            throw new JsonGraphQlRemoteClaimException("Error when accessing remote claim", baseUrl, e);
-        } catch (URISyntaxException e) {
-            throw new JsonGraphQlRemoteClaimException("Wrong uri syntax ", baseUrl, e);
+            return builder.build();
+        } catch (Exception e) {
+            throw new JsonGraphQlRemoteClaimException("Error when preparing Authentication request", baseUrl, e);
         }
     }
 
-    private static HttpResponse<String> executeGraphQL(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, String graphQlQuery) {
+    private static Request prepareGraphQLRequest(String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, String graphQlQuery) {
         try {
-            URIBuilder uriBuilder = new URIBuilder(baseUrl);
-            URI uri = uriBuilder.build();
+            headers.put(HttpHeaders.CONTENT_TYPE, contentType);
+            Headers requestHeaders = Headers.of(headers);
 
-            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri);
-            builder.POST(Utils.getGraphQlBody(graphQlQuery, queryParameters));
+            String graphQlBody = Utils.getGraphQlBody(graphQlQuery, queryParameters);
 
-            // Build headers
-            builder.header(HttpHeaders.CONTENT_TYPE , contentType);
-            headers.forEach(builder::header);
+            return new Request.Builder()
+                    .post(RequestBody.create(MediaType.parse(contentType), graphQlBody))
+                    .cacheControl(CacheControl.FORCE_NETWORK)
+                    .url(baseUrl)
+                    .headers(requestHeaders)
+                    .build();
 
-            // Call
-            return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException | IOException e) {
-            throw new JsonGraphQlRemoteClaimException("Error when accessing remote claim", baseUrl, e);
-        } catch (URISyntaxException e) {
-            throw new JsonGraphQlRemoteClaimException("Wrong uri syntax ", baseUrl, e);
+        } catch (Exception e) {
+            throw new JsonGraphQlRemoteClaimException("Error when preparing GraphQL request", baseUrl, e);
         }
+    }
+
+    private static boolean isGraphQlQuery(String graphQlQuery) {
+        return graphQlQuery != null;
+    }
+
+    private static Interceptor retryInterceptor() {
+        return chain -> {
+            var retryCount = 2;
+            Response response;
+            Request request = chain.request();
+            response = chain.proceed(request);
+
+            int tryCount = 1;
+            while (!response.isSuccessful() && tryCount <= retryCount) {
+                response.close();
+                LOGGER.warn("Request is not successful - attempt: " + tryCount);
+                tryCount++;
+                response = chain.proceed(request);
+            }
+            return response;
+        };
     }
 }
