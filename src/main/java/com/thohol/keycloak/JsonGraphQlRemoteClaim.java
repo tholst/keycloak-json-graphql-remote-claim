@@ -41,7 +41,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
     private final static String REMOTE_GRAPHQL = "remote.graphql";
     private final static String REMOTE_GRAPHQL_QUERY = "remote.graphql.query";
     private final static String REMOTE_GRAPHQL_RESULT_PATH = "remote.graphql.path";
-    private final static String RETRY_REQUEST = "retry.request";
+    private final static String RETRY_REQUEST = "remote.request.retry";
     /**
      * Inner configuration to cache retrieved authorization for multiple tokens
      */
@@ -189,7 +189,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         property.setLabel("Retry Request");
         property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
         property.setDefaultValue("false");
-        property.setHelpText("Retry request when it fails");
+        property.setHelpText("Retry request when it fails. Will attempt at most two retries.");
         configProperties.add(property);
     }
 

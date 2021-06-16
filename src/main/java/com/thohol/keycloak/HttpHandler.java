@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 import org.apache.http.HttpHeaders;
-import org.apache.log4j.Level;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
@@ -23,7 +22,7 @@ class HttpHandler {
             .build();
 
     static JsonNode getJsonNode(boolean retryEnabled, String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
-        org.apache.log4j.Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
+        LOGGER.info("Stared request, url: " + baseUrl);
         try {
             Request request;
             if (isGraphQlQuery(graphQlQuery)) {
