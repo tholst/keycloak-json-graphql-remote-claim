@@ -14,6 +14,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <keycloak.version>10.0.2</keycloak.version>
+        <okhttp.version>3.9.0</okhttp.version>
         <java.version>11</java.version>
     </properties>
 
@@ -38,7 +39,7 @@
                     <configuration>
                         <archive>
                             <manifestEntries>
-                                <Dependencies>java.net.http,org.keycloak.keycloak-core,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,org.keycloak.keycloak-services</Dependencies>
+                                <Dependencies>com.squareup.okhttp3,java.net.http,org.keycloak.keycloak-core,org.keycloak.keycloak-server-spi,org.keycloak.keycloak-server-spi-private,org.keycloak.keycloak-services</Dependencies>
                             </manifestEntries>
                         </archive>
                     </configuration>
@@ -71,6 +72,12 @@
             <artifactId>keycloak-services</artifactId>
             <scope>provided</scope>
             <version>${keycloak.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>provided</scope>
+            <version>${okhttp.version}</version>
         </dependency>
     </dependencies>
 

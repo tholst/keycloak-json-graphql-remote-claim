@@ -1,6 +1,7 @@
 <jboss-deployment-structure>
     <deployment>
         <dependencies>
+            <module name="com.squareup.okhttp3"/>
             <module name="org.keycloak.keycloak-core"/>
             <module name="org.keycloak.keycloak-server-spi"/>
             <module name="org.keycloak.keycloak-server-spi-private"/>

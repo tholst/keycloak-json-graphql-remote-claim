@@ -2,12 +2,12 @@ package com.thohol.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.http.HttpHeaders;
+import org.jboss.logging.Logger;
 import org.keycloak.models.*;
 import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.IDToken;
 import org.keycloak.utils.MediaType;
-import org.jboss.logging.Logger;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,10 +18,13 @@ import java.util.stream.Collectors;
  */
 public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
 
+    /*
+     * ID of the token mapper.
+     * Must be public
+     */
+    public final static String PROVIDER_ID = "json-remote-claim";
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final Logger LOGGER = Logger.getLogger(JsonGraphQlRemoteClaim.class);
-
-
     private final static String DEBUG_ERRORS_RETURN = "debugging.errors.catchall";
     private final static String DEBUG_ERRORS_SUPPRESS = "debugging.errors.suppress";
     private final static String DEBUG_REMOTE_DISABLED = "debugging.remote.disabled";
@@ -38,18 +41,11 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
     private final static String REMOTE_GRAPHQL = "remote.graphql";
     private final static String REMOTE_GRAPHQL_QUERY = "remote.graphql.query";
     private final static String REMOTE_GRAPHQL_RESULT_PATH = "remote.graphql.path";
-
-
+    private final static String RETRY_REQUEST = "remote.request.retry";
     /**
      * Inner configuration to cache retrieved authorization for multiple tokens
      */
     private final static String REMOTE_AUTHORIZATION_ATTR = "remote-authorizations";
-
-    /*
-     * ID of the token mapper.
-     * Must be public
-     */
-    public final static String PROVIDER_ID = "json-remote-claim";
 
     static {
         OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, JsonGraphQlRemoteClaim.class);
@@ -185,6 +181,15 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         property.setLabel("GraphQL Query Result Path");
         property.setType(ProviderConfigProperty.STRING_TYPE);
         property.setHelpText("The JSON path of the result data that should be assigned to the custom claim.");
+        configProperties.add(property);
+
+        // Retry mechanism
+        property = new ProviderConfigProperty();
+        property.setName(RETRY_REQUEST);
+        property.setLabel("Retry Request");
+        property.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        property.setDefaultValue("false");
+        property.setHelpText("Retry request when it fails. Will attempt at most two retries.");
         configProperties.add(property);
     }
 
@@ -336,7 +341,9 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
 
         // Call remote service
         String baseUrl = mappingModel.getConfig().get(CLIENT_AUTH_URL);
-        JsonNode jsonNode = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_FORM_URLENCODED, headers, parameters, formParameters, null);
+        boolean retryEnabled = "true".equals(mappingModel.getConfig().get(RETRY_REQUEST));
+
+        JsonNode jsonNode = HttpHandler.getJsonNode(retryEnabled, baseUrl, MediaType.APPLICATION_FORM_URLENCODED, headers, parameters, formParameters, null);
         if (!jsonNode.has("access_token")) {
             throw new JsonGraphQlRemoteClaimException("Access token not found", baseUrl);
         }
@@ -354,8 +361,9 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
 
         // Call remote service
         String baseUrl = mappingModel.getConfig().get(REMOTE_URL);
+        boolean retryEnabled = "true".equals(mappingModel.getConfig().get(RETRY_REQUEST));
         if (sendGraphQL) {
-            JsonNode result = HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, graphQlQuery);
+            JsonNode result = HttpHandler.getJsonNode(retryEnabled, baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, graphQlQuery);
 
             // select desired data from result json object
             if (graphQlQueryResultPath != null && !"".equals(graphQlQueryResultPath.trim())) {
@@ -368,7 +376,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
 
             return result;
         } else {
-            return HttpHandler.getJsonNode(baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, null);
+            return HttpHandler.getJsonNode(retryEnabled, baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, null);
         }
     }
 }
