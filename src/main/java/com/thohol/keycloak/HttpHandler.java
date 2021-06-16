@@ -22,7 +22,7 @@ class HttpHandler {
             .build();
 
     static JsonNode getJsonNode(boolean retryEnabled, String baseUrl, String contentType, Map<String, String> headers, Map<String, String> queryParameters, Map<String, String> formParameters, String graphQlQuery) {
-        LOGGER.info("Stared request, url: " + baseUrl);
+        LOGGER.info("Started processing request, url: " + baseUrl);
         try {
             Request request;
             if (isGraphQlQuery(graphQlQuery)) {
