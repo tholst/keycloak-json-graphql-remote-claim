@@ -1,8 +1,11 @@
 package com.thohol.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.HttpHeaders;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.spi.HttpRequest;
 import org.keycloak.models.*;
 import org.keycloak.protocol.oidc.mappers.*;
 import org.keycloak.provider.ProviderConfigProperty;
@@ -42,6 +45,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
     private final static String REMOTE_GRAPHQL_QUERY = "remote.graphql.query";
     private final static String REMOTE_GRAPHQL_RESULT_PATH = "remote.graphql.path";
     private final static String RETRY_REQUEST = "remote.request.retry";
+    private final static String SHOP_ID_FORM_PARAM = "shop_id";
     /**
      * Inner configuration to cache retrieved authorization for multiple tokens
      */
@@ -223,7 +227,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         final boolean disabled = "true".equals(mappingModel.getConfig().get(DEBUG_REMOTE_DISABLED));
         JsonNode claims = clientSessionCtx.getAttribute(REMOTE_AUTHORIZATION_ATTR, JsonNode.class);
         if (claims == null && !disabled) {
-            claims = getRemoteAuthorizations(mappingModel, userSession, clientSessionCtx);
+            claims = getRemoteAuthorizations(mappingModel, userSession, clientSessionCtx, keycloakSession);
             clientSessionCtx.setAttribute(REMOTE_AUTHORIZATION_ATTR, claims);
         }
 
@@ -250,7 +254,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         if (disabled) {
             OIDCAttributeMapperHelper.mapClaim(token, mappingModel, "disabled");
         } else {
-            JsonNode claims = getRemoteAuthorizations(mappingModel, userSession, null);
+            JsonNode claims = getRemoteAuthorizations(mappingModel, userSession, null, null);
             OIDCAttributeMapperHelper.mapClaim(token, mappingModel, claims);
         }
     }
@@ -350,7 +354,7 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
         return jsonNode.findValue("access_token").asText();
     }
 
-    private JsonNode getRemoteAuthorizations(ProtocolMapperModel mappingModel, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+    private JsonNode getRemoteAuthorizations(ProtocolMapperModel mappingModel, UserSessionModel userSession, ClientSessionContext clientSessionCtx, KeycloakSession keycloakSession) {
         final boolean sendGraphQL = "true".equals(mappingModel.getConfig().get(REMOTE_GRAPHQL));
         final String graphQlQuery = mappingModel.getConfig().get(REMOTE_GRAPHQL_QUERY);
         final String graphQlQueryResultPath = mappingModel.getConfig().get(REMOTE_GRAPHQL_RESULT_PATH);
@@ -374,9 +378,50 @@ public class JsonGraphQlRemoteClaim extends AbstractOIDCProtocolMapper implement
                 }
             }
 
+            var httpRequest = keycloakSession.getContext().getContextObject(HttpRequest.class);
+            var shopId = httpRequest.getFormParameters().getFirst(SHOP_ID_FORM_PARAM);
+
+            if (result != null) {
+                if (shopId == null) {
+                    extractBasicAccountInfo(result);
+                } else {
+                    extractAccountWithShopRoles(shopId, result);
+                }
+            }
+
             return result;
         } else {
             return HttpHandler.getJsonNode(retryEnabled, baseUrl, MediaType.APPLICATION_JSON, headers, parameters, null, null);
+        }
+    }
+
+    private void extractAccountWithShopRoles(String shopId, JsonNode result) {
+        LOGGER.info(String.format("Extract Account with Shop roles, shopId: [%s]", shopId));
+
+        var memberships = (ArrayNode) result.get("memberships");
+        for (int i = 0; i < memberships.size(); i++) {
+            var membership = memberships.get(i);
+
+            var shops = membership.get("shops").elements();
+            while (shops.hasNext()) {
+                if (!shops.next().get("shopId").textValue().equals(shopId)) {
+                    shops.remove();
+                }
+            }
+
+            if (membership.get("shops").isEmpty()) {
+                memberships.remove(i);
+            }
+        }
+    }
+
+    private void extractBasicAccountInfo(JsonNode result) {
+        LOGGER.info("Extract basic Account info");
+        var memberships = (ArrayNode) result.get("memberships");
+
+        for (JsonNode mem : memberships) {
+            var membership = (ObjectNode) mem;
+            membership.remove("shops");
         }
     }
 }
